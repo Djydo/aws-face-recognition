@@ -1,5 +1,7 @@
 import boto3
 from botocore.exceptions import ClientError
+import sys
+
 """
 References: 
  1) https://docs.aws.amazon.com/rekognition/latest/dg/collections.html
@@ -60,17 +62,20 @@ class FaceRecognition:
     def search_faces_by_image(self, img_object):
         try:
             threshold = 70
-            max_faces = 2
-            print('searching collection by face images ... ')
+            max_faces = 2   # number of result to return
+            print('searching collection by %s... ' % img_object)
             response = self.connection.search_faces_by_image(CollectionId=self.collection_id,
-                                                             Image={'S3Object': {'Bucket': self.s3_bucket, 'Name': img_object}},
+                                                             Image={'S3Object': {'Bucket': self.s3_bucket,
+                                                                                 'Name': img_object}},
                                                              FaceMatchThreshold=threshold,
                                                              MaxFaces=max_faces)
+
             matching_faces = response['FaceMatches']
             for match in matching_faces:
-                print('The face ' + img_object + 'matches ' + match['Face']['ExternalImageId'])
+                print('The face ' + img_object + ' matches ' + match['Face']['ExternalImageId'])
                 print('Similarity: ' + "{:.2f}".format(match['Similarity']) + "%")
-                print('Confidence: ' + "{:.2f}".format(match['Confidence']) + "%")
+                print('Confidence: ' + "{:.2f}".format(match['Face']['Confidence']) + "%")
+                print()
         except ClientError as err:
             err_msg = err.response['Error']['Code']
             self.status_code = err_msg
@@ -84,15 +89,15 @@ class FaceRecognition:
         else:
             return self.status_code
 
-    def main(self):
+    def main(self, query_object):
         """
-        1) set up connection to resource: s3 bucket
-        2) get list of objects in the s3 bucket
-             - caveat: method (list_objects_v2) only lists first 1000 objects
-             - consider using pagination to handle more than 1000 objects
-        3) index image objects in the bucket
-
-        :return:
+        Procedure:
+            1) set up connection to resource: s3 bucket
+            2) get list of objects in the s3 bucket
+                 - caveat: method (list_objects_v2) only lists first 1000 objects
+                 - consider using pagination to handle more than 1000 objects
+            3) index image objects in the bucket
+            4) search for a face
         """
         resource = boto3.client('s3')
         for item in resource.list_objects_v2(Bucket=self.s3_bucket)['Contents']:
@@ -102,13 +107,21 @@ class FaceRecognition:
                 print('indexing {} ...'.format(item_name))
                 self.index_object(item_name)
         print('Done! Finished indexing.')
+        print()
+        self.search_faces_by_image(query_object)
 
 
 if __name__ == "__main__":
-    collection_ID = 'face-collection'
-    s3_bucket_name = 'aws-face-recognition2019'
+    if len(sys.argv) > 1:
+        collection_ID = 'face-collection'
+        s3_bucket_name = 'aws-face-recognition2019'
 
-    face_rec = FaceRecognition(collection_ID, s3_bucket_name)
-    face_rec.create_collection()
-    face_rec.main()
-    # face_rec.delete_collection()
+        face_rec = FaceRecognition(collection_ID, s3_bucket_name)
+        face_rec.create_collection()
+
+        img_to_find = sys.argv[1]
+        face_rec.main(img_to_find)
+    else:
+        print('usage: python face_recognition.py <file.png>')
+
+    #face_rec.delete_collection()
