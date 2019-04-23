@@ -29,7 +29,7 @@ if __name__ == "__main__":
     path = '/home/<username>/Downloads/lfw/'
     home_directory = get_files(path)
     subprocess.check_output(['mkdir', path + '_all_files'])
-
+    print('copying file ...')
     for item in home_directory:
         content = get_files(path + str(item))
         for it in content:

@@ -123,5 +123,4 @@ if __name__ == "__main__":
         face_rec.main(img_to_find)
     else:
         print('usage: python face_recognition.py <file.png>')
-
-    #face_rec.delete_collection()
+    # face_rec.delete_collection()
